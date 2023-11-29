@@ -1,5 +1,4 @@
 import router from '@/routes';
-
 const API_END_POINT = 'https://kdt-frontend.programmers.co.kr/documents';
 
 export default {
@@ -24,12 +23,12 @@ export default {
       // payload가 없다면, 구조 분해 할당 에러가 발생하기 때문에
       // 기본값으로 {}를 할당해준다.
       const { parentId } = payload;
-      const workspace = await _request('', {
+      const workspace = await _request({
         method: 'POST',
-        body: {
+        body: JSON.stringify({
           title: '',
           parent: parentId,
-        },
+        }),
       });
 
       await dispatch('readWorkspaces');
@@ -42,7 +41,7 @@ export default {
       });
     },
     async readWorkspaces({ commit, dispatch }) {
-      const workspaces = await _request('', {
+      const workspaces = await _request({
         method: 'GET',
       });
 
@@ -59,10 +58,10 @@ export default {
     async readWorkspace({ commit }, payload) {
       const { id } = payload;
       try {
-        const workspace = await _request(`/${id}`, {
+        const workspace = await _request({
+          id,
           method: 'GET',
         });
-
         commit('assignState', {
           currentWorkspace: workspace,
         });
@@ -72,25 +71,27 @@ export default {
     },
     async updateWorkspace({ dispatch }, payload) {
       const { id, title, content } = payload;
-      await _request(`/${id}`, {
+      await _request({
+        id,
         method: 'PUT',
-        body: {
+        body: JSON.stringify({
           title: title,
           content: content,
-        },
+        }),
       });
 
       await dispatch('readWorkspaces');
     },
-    async deleteWorkspace({ state, dispatch }, payload = {}) {
+    async deleteWorkspace({ state, dispatch }, payload) {
       const { id } = payload;
-      await _request(`/${id}`, {
+      await _request({
+        id,
         method: 'DELETE',
       });
 
       await dispatch('readWorkspaces');
 
-      if (id.toString() === router.currentRoute.value.params.id) {
+      if (id === parseInt(router.currentRoute.value.params.id, 10)) {
         router.push({
           name: 'Workspace',
           params: {
@@ -100,9 +101,12 @@ export default {
       }
     },
     findWorkspacePath({ state, commit }) {
-      const currentWorkspaceId = router.currentRoute.value.params.id;
+      const currentWorkspaceId = parseInt(
+        router.currentRoute.value.params.id,
+        10
+      );
       function _find(workspace, parents) {
-        if (currentWorkspaceId === workspace.id.toString()) {
+        if (currentWorkspaceId === workspace.id) {
           commit('assignState', {
             currentWorkspacePath: [...parents, workspace],
           });
@@ -120,16 +124,9 @@ export default {
   },
 };
 
-async function _request(url = '', options) {
-  if (options.body) {
-    options.body = JSON.stringify(options.body);
-  }
-
-  return await fetch(`${API_END_POINT}${url}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-username': 'coggie',
-    },
+async function _request(options) {
+  return await fetch('/.netlify/functions/workspace', {
+    method: 'POST',
+    body: JSON.stringify(options),
   }).then((res) => res.json());
 }
